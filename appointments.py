@@ -1,187 +1,198 @@
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QLineEdit, QMessageBox, QDateEdit, QTimeEdit, QHBoxLayout, QApplication
+    QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QStackedWidget, 
+    QFrame, QLabel, QTableWidget, QTableWidgetItem, QLineEdit, QComboBox, QTextEdit
 )
-from PyQt6.QtCore import QDate, QTime, Qt
-import sqlite3
+from PyQt6.QtCore import QDate, Qt
+
 
 class AppointmentsPage(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Appointments")
-        self.label = QLabel("Appointments List")
+        # Main Layout
+        main_layout = QHBoxLayout()
 
-        # Table with all appointment details + Delete Button Column
-        self.table = QTableWidget(0, 8)  # 8 columns (7 details + 1 delete button)
-        self.table.setHorizontalHeaderLabels(["Token", "Client Name", "Phone", "Date", "Time", "Doctor", "Details", "Action"])
+        # Sidebar Layout
+        sidebar_layout = QVBoxLayout()
+        sidebar_layout.setSpacing(10)
 
-        # Input Fields
-        self.input_client = QLineEdit()
-        self.input_client.setPlaceholderText("Client Name")
-        self.input_client.returnPressed.connect(self.focus_phone)  # Move cursor to phone
+        self.sidebar_buttons = {
+            "Book Appointment": QPushButton("Book Appointment"),
+            "Upcoming Appointments": QPushButton("Upcoming"),
+            "Waitlist": QPushButton("Waitlist"),
+            "Recurring Appointments": QPushButton("Recurring"),
+            "Multi-Location Scheduling": QPushButton("Multi-Location")
+        }
 
-        self.input_phone = QLineEdit()
-        self.input_phone.setPlaceholderText("Phone Number")
-        self.input_phone.returnPressed.connect(self.focus_date)  # Move cursor to date
+        # Sidebar Styling
+        for btn in self.sidebar_buttons.values():
+            btn.setStyleSheet(
+                "QPushButton { padding: 10px; border-radius: 5px; background-color: #f0742f; color: white; font-size: 14px; font-weight: bold; border: none; transition: all 0.3s ease; }"
+                "QPushButton:hover { background-color: #e66727; box-shadow: 0px 4px 10px rgba(240, 116, 47, 0.5); }"
+            )
+            sidebar_layout.addWidget(btn)
 
-        # Date Selector (QDateEdit) → Use `editingFinished` Instead of `returnPressed`
-        self.input_date = QDateEdit()
-        self.input_date.setCalendarPopup(True)
-        self.input_date.setDate(QDate.currentDate())
-        self.input_date.editingFinished.connect(self.focus_time)  # Move cursor to time
-        self.input_date.installEventFilter(self)  # Capture "Enter" key
+        # Sidebar Frame
+        sidebar_frame = QFrame()
+        sidebar_frame.setLayout(sidebar_layout)
+        sidebar_frame.setStyleSheet("background-color: #ffffff; border-right: 3px solid #f0742f; padding: 10px;")
 
-        # Time Selector (QTimeEdit) → Use `editingFinished`
-        self.input_time = QTimeEdit()
-        self.input_time.setTime(QTime.currentTime())
-        self.input_time.editingFinished.connect(self.focus_doctor)  # Move cursor to doctor
-        self.input_time.installEventFilter(self)  # Capture "Enter" key
+        # Stacked Widget for Pages
+        self.stack = QStackedWidget()
 
-        self.input_doctor = QLineEdit()
-        self.input_doctor.setPlaceholderText("Doctor Name")
-        self.input_doctor.returnPressed.connect(self.focus_details)  # Move cursor to details
+        # Add Pages
+        self.stack.addWidget(self.create_book_appointment_page())  
+        self.stack.addWidget(self.create_upcoming_appointments_page())  
+        self.stack.addWidget(self.create_waitlist_page())  
+        self.stack.addWidget(self.create_recurring_appointments_page())  
 
-        self.input_details = QLineEdit()
-        self.input_details.setPlaceholderText("Details")
-        self.input_details.returnPressed.connect(self.add_appointment)  # Add appointment
+        # Connect Sidebar Buttons to Stack
+        for i, (name, button) in enumerate(self.sidebar_buttons.items()):
+            button.clicked.connect(lambda _, index=i: self.stack.setCurrentIndex(index))
 
-        # Add Button
-        self.button_add = QPushButton("Add Appointment")
-        self.button_add.clicked.connect(self.add_appointment)
+        # Default Page
+        self.stack.setCurrentIndex(0)
 
-        # Layout
+        # Add Sidebar & Content to Main Layout
+        main_layout.addWidget(sidebar_frame, 1)  # Sidebar (Fixed Width)
+        main_layout.addWidget(self.stack, 4)  # Main Content (Flexible)
+
+        self.setLayout(main_layout)
+
+    ### **1. Book Appointment Page**
+    def create_book_appointment_page(self):
+        page = QWidget()
         layout = QVBoxLayout()
-        layout.addWidget(self.label)
-        layout.addWidget(self.table)
 
-        form_layout = QVBoxLayout()
-        form_layout.addWidget(QLabel("Client Name:"))
-        form_layout.addWidget(self.input_client)
-        form_layout.addWidget(QLabel("Phone Number:"))
-        form_layout.addWidget(self.input_phone)
-        form_layout.addWidget(QLabel("Date:"))
-        form_layout.addWidget(self.input_date)
-        form_layout.addWidget(QLabel("Time:"))
-        form_layout.addWidget(self.input_time)
-        form_layout.addWidget(QLabel("Doctor Name:"))
-        form_layout.addWidget(self.input_doctor)
-        form_layout.addWidget(QLabel("Details:"))
-        form_layout.addWidget(self.input_details)
+        layout.addWidget(QLabel("Book New Appointment"))
 
-        form_layout.addWidget(self.button_add)
+        self.client_name = QLineEdit()
+        self.client_name.setPlaceholderText("Enter Client Name")
+        layout.addWidget(self.client_name)
 
-        layout.addLayout(form_layout)
-        self.setLayout(layout)
+        self.treatment_type = QComboBox()
+        self.treatment_type.addItems(["Botox", "Fillers", "Laser", "Facial"])
+        layout.addWidget(self.treatment_type)
 
-        self.load_appointments()
+        self.date_input = QLineEdit()
+        self.date_input.setPlaceholderText("Enter Date (DD-MM-YYYY)")
+        layout.addWidget(self.date_input)
 
-    # Focus Functions for Enter Key Handling
-    def focus_phone(self):
-        self.input_phone.setFocus()
+        self.notes = QTextEdit()
+        self.notes.setPlaceholderText("Additional Notes")
+        layout.addWidget(self.notes)
 
-    def focus_date(self):
-        self.input_date.setFocus()
+        book_button = QPushButton("Book Appointment")
+        book_button.setStyleSheet("background-color: #f0742f; color: white;")
+        book_button.clicked.connect(self.book_appointment)
+        layout.addWidget(book_button)
 
-    def focus_time(self):
-        self.input_time.setFocus()
+        page.setLayout(layout)
+        return page
 
-    def focus_doctor(self):
-        self.input_doctor.setFocus()
+    def book_appointment(self):
+        name = self.client_name.text()
+        treatment = self.treatment_type.currentText()
+        date = self.date_input.text()
+        notes = self.notes.toPlainText()
+        print(f"Appointment booked for {name} on {date} for {treatment} (Notes: {notes})")
 
-    def focus_details(self):
-        self.input_details.setFocus()
+    ### **2. Upcoming Appointments Page**
+    def create_upcoming_appointments_page(self):
+        page = QWidget()
+        layout = QVBoxLayout()
 
-    def load_appointments(self):
-        """Loads appointments from the database and adds delete buttons."""
-        conn = sqlite3.connect("db/crm.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, client_name, phone_number, date, time, doctor_name, details FROM appointments")
-        appointments = cursor.fetchall()
-        conn.close()
+        layout.addWidget(QLabel("Upcoming Appointments"))
 
-        self.table.setRowCount(len(appointments))
-        for row, (token, client, phone, date, time, doctor, details) in enumerate(appointments):
-            self.table.setItem(row, 0, QTableWidgetItem(str(token)))
-            self.table.setItem(row, 1, QTableWidgetItem(client))
-            self.table.setItem(row, 2, QTableWidgetItem(phone))
-            self.table.setItem(row, 3, QTableWidgetItem(date))
-            self.table.setItem(row, 4, QTableWidgetItem(time))
-            self.table.setItem(row, 5, QTableWidgetItem(doctor))
-            self.table.setItem(row, 6, QTableWidgetItem(details))
+        self.search_upcoming = QLineEdit()
+        self.search_upcoming.setPlaceholderText("Search Appointment...")
+        self.search_upcoming.textChanged.connect(lambda: self.filter_table(self.upcoming_table, self.search_upcoming.text()))
+        layout.addWidget(self.search_upcoming)
 
-            # Add Delete Button
-            delete_button = QPushButton("🗑 Delete")
-            delete_button.clicked.connect(lambda _, t=token: self.delete_appointment(t))
-            self.table.setCellWidget(row, 7, delete_button)
+        self.upcoming_table = QTableWidget(5, 3)
+        self.upcoming_table.setHorizontalHeaderLabels(["Client Name", "Date", "Treatment"])
+        self.populate_upcoming_table()
+        layout.addWidget(self.upcoming_table)
 
-    def add_appointment(self):
-        """Adds a new appointment and clears input fields."""
-        client_name = self.input_client.text().strip()
-        phone_number = self.input_phone.text().strip()
-        date = self.input_date.date().toString("dd-MMM-yyyy")
-        time = self.input_time.time().toString("hh:mm AP")
-        doctor_name = self.input_doctor.text().strip()
-        details = self.input_details.text().strip()
+        page.setLayout(layout)
+        return page
 
-        if not client_name or not phone_number or not doctor_name or not details:
-            QMessageBox.warning(self, "Error", "All fields are required!")
-            return
+    def populate_upcoming_table(self):
+        data = [
+            ("John Doe", "10-03-2025", "Laser"),
+            ("Emma Smith", "15-03-2025", "Fillers"),
+            ("Michael Brown", "20-03-2025", "Botox"),
+        ]
+        self.upcoming_table.setRowCount(len(data))
+        for row, (name, date, treatment) in enumerate(data):
+            self.upcoming_table.setItem(row, 0, QTableWidgetItem(name))
+            self.upcoming_table.setItem(row, 1, QTableWidgetItem(date))
+            self.upcoming_table.setItem(row, 2, QTableWidgetItem(treatment))
 
-        conn = sqlite3.connect("db/crm.db")
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO appointments (client_name, phone_number, date, time, doctor_name, details) VALUES (?, ?, ?, ?, ?, ?)",
-            (client_name, phone_number, date, time, doctor_name, details)
-        )
-        conn.commit()
-        conn.close()
+    ### **3. Waitlist Page**
+    def create_waitlist_page(self):
+        page = QWidget()
+        layout = QVBoxLayout()
 
-        self.clear_inputs()
-        QMessageBox.information(self, "Success", "Appointment added!")
-        self.load_appointments()
+        layout.addWidget(QLabel("Waitlist Management"))
 
-    def delete_appointment(self, token):
-        """Deletes an appointment when the delete button is clicked."""
-        confirmation = QMessageBox.question(
-            self, "Confirm Deletion", "Are you sure you want to delete this appointment?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+        self.search_waitlist = QLineEdit()
+        self.search_waitlist.setPlaceholderText("Search Waitlist...")
+        self.search_waitlist.textChanged.connect(lambda: self.filter_table(self.waitlist_table, self.search_waitlist.text()))
+        layout.addWidget(self.search_waitlist)
 
-        if confirmation == QMessageBox.StandardButton.Yes:
-            conn = sqlite3.connect("db/crm.db")
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM appointments WHERE id = ?", (token,))
-            conn.commit()
-            conn.close()
+        self.waitlist_table = QTableWidget(3, 3)
+        self.waitlist_table.setHorizontalHeaderLabels(["Client Name", "Priority", "Notes"])
+        self.populate_waitlist_table()
+        layout.addWidget(self.waitlist_table)
 
-            QMessageBox.information(self, "Success", "Appointment deleted!")
-            self.load_appointments()  # Refresh table
+        page.setLayout(layout)
+        return page
 
-    def clear_inputs(self):
-        """Clears input fields after adding an appointment."""
-        self.input_client.clear()
-        self.input_phone.clear()
-        self.input_date.setDate(QDate.currentDate())
-        self.input_time.setTime(QTime.currentTime())
-        self.input_doctor.clear()
-        self.input_details.clear()
+    def populate_waitlist_table(self):
+        data = [
+            ("Jane Doe", "High", "Wants earlier slot"),
+            ("Alex Carter", "Medium", "Flexible schedule"),
+        ]
+        self.waitlist_table.setRowCount(len(data))
+        for row, (name, priority, notes) in enumerate(data):
+            self.waitlist_table.setItem(row, 0, QTableWidgetItem(name))
+            self.waitlist_table.setItem(row, 1, QTableWidgetItem(priority))
+            self.waitlist_table.setItem(row, 2, QTableWidgetItem(notes))
 
-    def eventFilter(self, obj, event):
-        """Handles Enter key in QDateEdit and QTimeEdit."""
-        if event.type() == event.Type.KeyPress and event.key() == Qt.Key.Key_Return:
-            if obj == self.input_date:
-                self.focus_time()
-                return True
-            elif obj == self.input_time:
-                self.focus_doctor()
-                return True
-        return super().eventFilter(obj, event)
+    ### **4. Recurring Appointments Page**
+    def create_recurring_appointments_page(self):
+        page = QWidget()
+        layout = QVBoxLayout()
 
+        layout.addWidget(QLabel("Recurring Appointments"))
 
-# Run the App (for testing)
-if __name__ == "__main__":
-    app = QApplication([])
-    window = AppointmentsPage()
-    window.show()
-    app.exec()
+        self.search_recurring = QLineEdit()
+        self.search_recurring.setPlaceholderText("Search Recurring Appointments...")
+        self.search_recurring.textChanged.connect(lambda: self.filter_table(self.recurring_table, self.search_recurring.text()))
+        layout.addWidget(self.search_recurring)
+
+        self.recurring_table = QTableWidget(2, 3)
+        self.recurring_table.setHorizontalHeaderLabels(["Client Name", "Interval", "Next Session"])
+        self.populate_recurring_table()
+        layout.addWidget(self.recurring_table)
+
+        page.setLayout(layout)
+        return page
+
+    def populate_recurring_table(self):
+        data = [
+            ("Sarah Lee", "Every 2 Weeks", "20-03-2025"),
+        ]
+        self.recurring_table.setRowCount(len(data))
+        for row, (name, interval, next_session) in enumerate(data):
+            self.recurring_table.setItem(row, 0, QTableWidgetItem(name))
+            self.recurring_table.setItem(row, 1, QTableWidgetItem(interval))
+            self.recurring_table.setItem(row, 2, QTableWidgetItem(next_session))
+
+    ### **🔍 Search Filtering Function**
+    def filter_table(self, table, query):
+        query = query.lower()
+        for row in range(table.rowCount()):
+            item = table.item(row, 0)
+            table.setRowHidden(row, item is None or query not in item.text().lower())
