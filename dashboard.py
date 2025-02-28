@@ -6,7 +6,7 @@ from appointments import AppointmentsPage
 from clients import ClientPage
 from billing import BillingPage
 from treatment import TreatmentPage
-from inventory import InventoryPage
+from inventory import inventory
 from staff import StaffPage
 from reports import ReportsPage
 from settings import SettingsPage
@@ -77,7 +77,7 @@ class DashboardWindow(QWidget):
             "Clients": ClientPage(),
             "Billing": BillingPage(),
             "Treatment": TreatmentPage(),
-            "Inventory": InventoryPage(),
+            "Inventory": inventory(),
             "Staff": StaffPage(),
             "Reports": ReportsPage(),
             "Settings": SettingsPage()

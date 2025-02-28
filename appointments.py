@@ -3,8 +3,7 @@ from PyQt6.QtWidgets import (
     QFrame, QLabel, QTableWidget, QTableWidgetItem, QLineEdit, QComboBox, QTextEdit
 )
 from PyQt6.QtCore import QDate, Qt
-
-
+from PyQt6.QtWidgets import QDateEdit
 class AppointmentsPage(QWidget):
     def __init__(self):
         super().__init__()
@@ -74,8 +73,11 @@ class AppointmentsPage(QWidget):
         self.treatment_type.addItems(["Botox", "Fillers", "Laser", "Facial"])
         layout.addWidget(self.treatment_type)
 
-        self.date_input = QLineEdit()
-        self.date_input.setPlaceholderText("Enter Date (DD-MM-YYYY)")
+        # Replace QLineEdit with QDateEdit for the date input
+        self.date_input = QDateEdit()
+        self.date_input.setCalendarPopup(True)  # Enable calendar popup
+        self.date_input.setDate(QDate.currentDate())  # Set default date to today
+        self.date_input.setDisplayFormat("dd-MM-yyyy")  # Format the displayed date
         layout.addWidget(self.date_input)
 
         self.notes = QTextEdit()
@@ -90,12 +92,14 @@ class AppointmentsPage(QWidget):
         page.setLayout(layout)
         return page
 
+
     def book_appointment(self):
         name = self.client_name.text()
         treatment = self.treatment_type.currentText()
-        date = self.date_input.text()
+        date = self.date_input.date().toString("dd-MM-yyyy")  # Get date as a string
         notes = self.notes.toPlainText()
         print(f"Appointment booked for {name} on {date} for {treatment} (Notes: {notes})")
+
 
     ### **2. Upcoming Appointments Page**
     def create_upcoming_appointments_page(self):

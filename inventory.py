@@ -1,135 +1,107 @@
+import sys
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QLineEdit, QMessageBox, QHBoxLayout
+    QApplication, QWidget, QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QPushButton,
+    QVBoxLayout, QHBoxLayout, QHeaderView, QComboBox, QSpinBox, QMessageBox
 )
-import sqlite3
-import os
-from PyQt6.QtWidgets import QApplication
-from style import STYLE_SHEET  # Import the styles
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont
 
-app = QApplication([])
-app.setStyleSheet(STYLE_SHEET)  # Apply global styles
-
-
-class InventoryPage(QWidget):
+class inventory(QWidget):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle('Billing Section')
+        self.setGeometry(100, 100, 800, 600)
+        self.initUI()
 
-        self.setWindowTitle("Inventory Management")
-        self.resize(600, 400)
+    def initUI(self):
+        # Layouts
+        main_layout = QVBoxLayout()
+        form_layout = QHBoxLayout()
+        table_layout = QVBoxLayout()
+        button_layout = QHBoxLayout()
 
-        # Ensure database and table exist
-        self.ensure_db()
+        # Header
+        header_label = QLabel('BILLING SECTION')
+        header_label.setFont(QFont('Arial', 20, QFont.Weight.Bold))
+        header_label.setStyleSheet('color: red;')
+        header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(header_label)
 
-        # Title
-        self.label = QLabel("Inventory Stock:")
+        # Form Fields
+        client_name_label = QLabel('Client Name:')
+        self.client_name_input = QLineEdit()
 
-        # Table to show stock
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Product", "Stock", "Status"])
+        product_label = QLabel('Product:')
+        self.product_input = QLineEdit()
 
-        # Input Fields
-        self.input_product = QLineEdit()
-        self.input_product.setPlaceholderText("Enter Product Name")
-        
-        self.input_stock = QLineEdit()
-        self.input_stock.setPlaceholderText("Enter Stock Quantity")
+        quantity_label = QLabel('Quantity:')
+        self.quantity_input = QSpinBox()
+        self.quantity_input.setRange(1, 1000)
+
+        price_label = QLabel('Price:')
+        self.price_input = QLineEdit()
+
+        form_layout.addWidget(client_name_label)
+        form_layout.addWidget(self.client_name_input)
+        form_layout.addWidget(product_label)
+        form_layout.addWidget(self.product_input)
+        form_layout.addWidget(quantity_label)
+        form_layout.addWidget(self.quantity_input)
+        form_layout.addWidget(price_label)
+        form_layout.addWidget(self.price_input)
+
+        main_layout.addLayout(form_layout)
+
+        # Table
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(['Product', 'Quantity', 'Price', 'Total', 'Actions'])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table_layout.addWidget(self.table)
 
         # Buttons
-        self.button_add = QPushButton("Add Product")
-        self.button_add.clicked.connect(self.add_product)
+        add_button = QPushButton('ADD')
+        add_button.setStyleSheet('background-color: green; color: white; font-weight: bold;')
+        add_button.clicked.connect(self.add_product)
+        save_button = QPushButton('SAVE')
+        cancel_button = QPushButton('CANCEL')
 
-        self.button_refresh = QPushButton("Refresh Inventory")
-        self.button_refresh.clicked.connect(self.load_inventory)
+        button_layout.addWidget(add_button)
+        button_layout.addWidget(save_button)
+        button_layout.addWidget(cancel_button)
 
-        # Layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.label)
-        layout.addWidget(self.table)
+        main_layout.addLayout(table_layout)
+        main_layout.addLayout(button_layout)
 
-        form_layout = QHBoxLayout()
-        form_layout.addWidget(QLabel("Product Name:"))
-        form_layout.addWidget(self.input_product)
-
-        form_layout2 = QHBoxLayout()
-        form_layout2.addWidget(QLabel("Stock Quantity:"))
-        form_layout2.addWidget(self.input_stock)
-
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.button_add)
-        button_layout.addWidget(self.button_refresh)
-
-        layout.addLayout(form_layout)
-        layout.addLayout(form_layout2)
-        layout.addLayout(button_layout)
-
-        self.setLayout(layout)
-        self.load_inventory()
-
-    def ensure_db(self):
-        """Ensures that the inventory table exists in the database."""
-        if not os.path.exists("db"):
-            os.makedirs("db")  # Create the folder if it doesn't exist
-
-        conn = sqlite3.connect("db/crm.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS inventory (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE,
-                stock INTEGER
-            )
-        """)
-        conn.commit()
-        conn.close()
-
-    def load_inventory(self):
-        """Loads inventory records into the table."""
-        conn = sqlite3.connect("db/crm.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT name, stock FROM inventory")
-        records = cursor.fetchall()
-        conn.close()
-
-        self.table.setRowCount(len(records))
-        for row, (name, stock) in enumerate(records):
-            status = "Low Stock" if stock < 5 else "Available"
-            self.table.setItem(row, 0, QTableWidgetItem(name))
-            self.table.setItem(row, 1, QTableWidgetItem(str(stock)))
-            self.table.setItem(row, 2, QTableWidgetItem(status))
+        self.setLayout(main_layout)
 
     def add_product(self):
-        """Adds a new product to the inventory."""
-        product = self.input_product.text().strip()
-        stock = self.input_stock.text().strip()
+        product_name = self.product_input.text()
+        quantity = self.quantity_input.value()
+        price = self.price_input.text()
 
-        if not product or not stock:
-            QMessageBox.warning(self, "Error", "Please enter both Product Name and Stock Quantity!")
+        if not product_name or not price:
+            QMessageBox.warning(self, 'Input Error', 'Please provide all product details.')
             return
 
         try:
-            stock = int(stock)
+            price = float(price)
+            total = quantity * price
+            row_position = self.table.rowCount()
+            self.table.insertRow(row_position)
+            self.table.setItem(row_position, 0, QTableWidgetItem(product_name))
+            self.table.setItem(row_position, 1, QTableWidgetItem(str(quantity)))
+            self.table.setItem(row_position, 2, QTableWidgetItem(f'{price:.2f}'))
+            self.table.setItem(row_position, 3, QTableWidgetItem(f'{total:.2f}'))
+            remove_button = QPushButton('Remove')
+            remove_button.setStyleSheet('background-color: red; color: white;')
+            remove_button.clicked.connect(lambda: self.table.removeRow(row_position))
+            self.table.setCellWidget(row_position, 4, remove_button)
         except ValueError:
-            QMessageBox.warning(self, "Error", "Stock must be a valid number!")
-            return
+            QMessageBox.warning(self, 'Input Error', 'Price must be a number.')
 
-        conn = sqlite3.connect("db/crm.db")
-        cursor = conn.cursor()
-
-        # Check if product exists
-        cursor.execute("SELECT stock FROM inventory WHERE name = ?", (product,))
-        existing_product = cursor.fetchone()
-
-        if existing_product:
-            # Update stock if product exists
-            new_stock = existing_product[0] + stock
-            cursor.execute("UPDATE inventory SET stock = ? WHERE name = ?", (new_stock, product))
-        else:
-            # Insert new product
-            cursor.execute("INSERT INTO inventory (name, stock) VALUES (?, ?)", (product, stock))
-
-        conn.commit()
-        conn.close()
-
-        QMessageBox.information(self, "Success", "Product added/updated successfully!")
-        self.load_inventory()
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = inventory()
+    window.show()
+    sys.exit(app.exec())
